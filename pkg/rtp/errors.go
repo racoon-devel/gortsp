@@ -4,18 +4,18 @@ import "fmt"
 
 // ErrIncompleteHeader describes error when header length is less than required
 type ErrIncompleteHeader struct {
-	Actual   int
 	Expected int
+	Actual   int
 }
 
 func (e ErrIncompleteHeader) Error() string {
 	return fmt.Sprintf("incoming buffer too short: %d < %d", e.Actual, e.Expected)
 }
 
-func newErrIncompleteHeader(actual int, expected int) error {
+func newErrIncompleteHeader(expected int, actual int) error {
 	return ErrIncompleteHeader{
-		Actual:   actual,
 		Expected: expected,
+		Actual:   actual,
 	}
 }
 
@@ -30,18 +30,18 @@ func (e ErrVersionMismatch) Error() string {
 
 // ErrNotEnoughBufferSpace describes error when buffer length is not enough for building packet
 type ErrNotEnoughBufferSpace struct {
-	Actual   int
 	Expected int
+	Actual   int
 }
 
 func (e ErrNotEnoughBufferSpace) Error() string {
 	return fmt.Sprintf("not enough buffer space: %d < %d", e.Actual, e.Expected)
 }
 
-func newErrNotEnoughBufferSpace(actual int, expected int) error {
+func newErrNotEnoughBufferSpace(expected int, actual int) error {
 	return ErrNotEnoughBufferSpace{
-		Actual:   actual,
 		Expected: expected,
+		Actual:   actual,
 	}
 }
 

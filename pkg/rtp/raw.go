@@ -37,6 +37,44 @@ type RawPacket []byte
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 */
 
+// ValidateHeader returns RTP packet header size and error if it's malformed
+func (p RawPacket) ValidateHeader() (size int, err error) {
+	expected := HeaderLength
+	if len(p) < expected {
+		err = newErrIncompleteHeader(expected, len(p))
+		return
+	}
+
+	version := p.Version()
+	if version != Version {
+		err = ErrVersionMismatch{version}
+		return
+	}
+
+	expected += int(p.CC()) * 4
+
+	if p.X() {
+		expected += HeaderExtensionLength
+	}
+
+	if len(p) < expected {
+		err = newErrIncompleteHeader(expected, len(p))
+		return
+	}
+
+	if p.X() {
+		expected += int(p.ExtensionLength()) * 4
+	}
+
+	if len(p) < expected {
+		err = newErrIncompleteHeader(expected, len(p))
+		return
+	}
+
+	size = expected
+	return
+}
+
 func (p RawPacket) Version() uint8 {
 	return p[0] >> versionShift
 }

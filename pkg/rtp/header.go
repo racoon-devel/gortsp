@@ -34,37 +34,8 @@ func (h Header) Size() int {
 // Parse validates RTP header and fills fields
 func (h *Header) Parse(data []byte) (n int, err error) {
 	p := RawPacket(data)
-
-	expected := HeaderLength
-	if len(p) < expected {
-		err = newErrIncompleteHeader(len(p), expected)
-		return
-	}
-
-	version := p.Version()
-	if version != Version {
-		err = ErrVersionMismatch{version}
-		return
-	}
-
-	csrcCount := int(p.CC())
-	expected += csrcCount * 4
-
-	if p.X() {
-		expected += HeaderExtensionLength
-	}
-
-	if len(p) < expected {
-		err = newErrIncompleteHeader(len(p), expected)
-		return
-	}
-
-	if p.X() {
-		expected += int(p.ExtensionLength()) * 4
-	}
-
-	if len(p) < expected {
-		err = newErrIncompleteHeader(len(p), expected)
+	n, err = p.ValidateHeader()
+	if err != nil {
 		return
 	}
 
@@ -74,7 +45,7 @@ func (h *Header) Parse(data []byte) (n int, err error) {
 	h.SequenceNumber = p.Seq()
 	h.Timestamp = p.Timestamp()
 	h.SSRC = p.SSRC()
-	if csrcCount != 0 {
+	if csrcCount := int(p.CC()); csrcCount != 0 {
 		h.CSRC = make([]uint32, csrcCount)
 		for i := 0; i < csrcCount; i++ {
 			h.CSRC[i] = p.CSRC(i)
@@ -92,7 +63,6 @@ func (h *Header) Parse(data []byte) (n int, err error) {
 		h.Extension = nil
 	}
 
-	n = expected
 	return
 }
 
@@ -106,7 +76,7 @@ func (h Header) Compose() ([]byte, error) {
 // ComposeTo builds an RTP packet header to specified buffer
 func (h Header) ComposeTo(buf []byte) (n int, err error) {
 	if len(buf) < HeaderLength {
-		err = newErrNotEnoughBufferSpace(len(buf), HeaderLength)
+		err = newErrNotEnoughBufferSpace(HeaderLength, len(buf))
 		return
 	}
 
@@ -122,7 +92,7 @@ func (h Header) ComposeTo(buf []byte) (n int, err error) {
 
 	size := h.Size()
 	if len(buf) < size {
-		err = newErrNotEnoughBufferSpace(len(buf), size)
+		err = newErrNotEnoughBufferSpace(size, len(buf))
 		return
 	}
 

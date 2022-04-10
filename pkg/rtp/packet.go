@@ -29,7 +29,7 @@ func (p Packet) Compose() ([]byte, error) {
 func (p Packet) ComposeTo(buf []byte) (int, error) {
 	size := p.Size()
 	if len(buf) < size {
-		return 0, newErrNotEnoughBufferSpace(len(buf), size)
+		return 0, newErrNotEnoughBufferSpace(size, len(buf))
 	}
 
 	n, err := p.Header.ComposeTo(buf)
