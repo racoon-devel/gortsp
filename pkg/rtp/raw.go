@@ -163,11 +163,11 @@ func (p RawPacket) SetExtensionLength(length uint16) {
 }
 
 func (p RawPacket) ExtensionHeader() []byte {
-	offset := int(HeaderLength + p.CC()*4 + extensionHeaderLength)
+	offset := int(HeaderLength + p.CC()*4 + HeaderExtensionLength)
 	return p[offset : offset+int(p.ExtensionLength()*4)]
 }
 
 func (p RawPacket) SetExtensionHeader(hdr []byte) {
-	offset := int(HeaderLength + p.CC()*4 + extensionHeaderLength)
+	offset := int(HeaderLength + p.CC()*4 + HeaderExtensionLength)
 	copy(p[offset:], hdr)
 }

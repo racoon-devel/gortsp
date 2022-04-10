@@ -612,7 +612,7 @@ func TestRawPacket_SetExtensionHeader(t *testing.T) {
 	}
 
 	const cc = 5
-	p := make(RawPacket, HeaderLength+cc*4+extensionHeaderLength+len(ext))
+	p := make(RawPacket, HeaderLength+cc*4+HeaderExtensionLength+len(ext))
 	p.SetCC(5)
 	p.SetExtensionLength(2)
 	p.SetExtensionHeader(ext)
@@ -621,7 +621,7 @@ func TestRawPacket_SetExtensionHeader(t *testing.T) {
 	assert.EqualValues(t, 2, p.ExtensionLength())
 }
 
-func TestRawPacketParse(t *testing.T) {
+func TestRawPacket_Parse(t *testing.T) {
 	type testCase struct {
 		src     RawPacket
 		p       bool

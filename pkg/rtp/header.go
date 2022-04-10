@@ -1,8 +1,7 @@
 package rtp
 
 import (
-	"fmt"
-	"github.com/racoon-devel/gortsp/pkg/cerr"
+	"math"
 )
 
 // ExtensionHeader represents RTP extension header
@@ -27,34 +26,37 @@ type Header struct {
 func (h Header) Size() int {
 	size := HeaderLength + len(h.CSRC)*4
 	if h.Extension != nil {
-		size += extensionHeaderLength + len(h.Extension.Content)
+		size += HeaderExtensionLength + int(math.Ceil(float64(len(h.Extension.Content))/4.))*4
 	}
 	return size
 }
 
 // Parse validates RTP header and fills fields
-func (h *Header) Parse(data []byte) error {
+func (h *Header) Parse(data []byte) (n int, err error) {
 	p := RawPacket(data)
 
 	expected := HeaderLength
 	if len(p) < expected {
-		return cerr.NewInBufferTooShort(len(p), expected)
+		err = newErrIncompleteHeader(len(p), expected)
+		return
 	}
 
 	version := p.Version()
 	if version != Version {
-		return cerr.NewProtocolVersionMismatch("RTP", int(version), Version)
+		err = ErrVersionMismatch{version}
+		return
 	}
 
 	csrcCount := int(p.CC())
 	expected += csrcCount * 4
 
 	if p.X() {
-		expected += extensionHeaderLength
+		expected += HeaderExtensionLength
 	}
 
 	if len(p) < expected {
-		return cerr.NewInBufferTooShort(len(p), expected)
+		err = newErrIncompleteHeader(len(p), expected)
+		return
 	}
 
 	if p.X() {
@@ -62,7 +64,8 @@ func (h *Header) Parse(data []byte) error {
 	}
 
 	if len(p) < expected {
-		return cerr.NewInBufferTooShort(len(p), expected)
+		err = newErrIncompleteHeader(len(p), expected)
+		return
 	}
 
 	h.Padding = p.P()
@@ -71,9 +74,13 @@ func (h *Header) Parse(data []byte) error {
 	h.SequenceNumber = p.Seq()
 	h.Timestamp = p.Timestamp()
 	h.SSRC = p.SSRC()
-	h.CSRC = make([]uint32, csrcCount)
-	for i := 0; i < csrcCount; i++ {
-		h.CSRC[i] = p.CSRC(i)
+	if csrcCount != 0 {
+		h.CSRC = make([]uint32, csrcCount)
+		for i := 0; i < csrcCount; i++ {
+			h.CSRC[i] = p.CSRC(i)
+		}
+	} else {
+		h.CSRC = nil
 	}
 
 	if p.X() {
@@ -85,28 +92,38 @@ func (h *Header) Parse(data []byte) error {
 		h.Extension = nil
 	}
 
-	return nil
+	n = expected
+	return
 }
 
 // Compose builds an RTP packet header
 func (h Header) Compose() ([]byte, error) {
 	buf := make([]byte, h.Size())
-	return buf, h.ComposeTo(buf)
+	_, err := h.ComposeTo(buf)
+	return buf, err
 }
 
 // ComposeTo builds an RTP packet header to specified buffer
-func (h Header) ComposeTo(buf []byte) error {
-	size := h.Size()
-	if len(buf) < size {
-		return cerr.NewOutBufferTooShort(len(buf), size)
+func (h Header) ComposeTo(buf []byte) (n int, err error) {
+	if len(buf) < HeaderLength {
+		err = newErrNotEnoughBufferSpace(len(buf), HeaderLength)
+		return
 	}
 
 	if len(h.CSRC) > MaxCSRC {
-		return fmt.Errorf("max CSRC capacity reached: %d > %d", h.CSRC, MaxCSRC)
+		err = newErrCSRCLimitExceeded(len(h.CSRC))
+		return
 	}
 
 	if h.PayloadType > MaxPayloadType {
-		return fmt.Errorf("invalid payload type: %d", h.PayloadType)
+		err = newErrInvalidPayloadType(h.PayloadType)
+		return
+	}
+
+	size := h.Size()
+	if len(buf) < size {
+		err = newErrNotEnoughBufferSpace(len(buf), size)
+		return
 	}
 
 	p := RawPacket(buf)
@@ -126,9 +143,10 @@ func (h Header) ComposeTo(buf []byte) error {
 
 	if h.Extension != nil {
 		p.SetExtensionProfile(h.Extension.Profile)
-		p.SetExtensionLength(uint16(len(h.Extension.Content) / 4))
+		p.SetExtensionLength(uint16(math.Ceil(float64(len(h.Extension.Content)) / 4.)))
 		p.SetExtensionHeader(h.Extension.Content)
 	}
 
-	return nil
+	n = size
+	return
 }
